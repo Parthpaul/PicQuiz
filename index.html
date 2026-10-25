@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PicQuiz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#5B3DF5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PicQuiz">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap">
 <style>
 :root{
@@ -77,14 +85,23 @@ h2{margin:4px 0 12px;font-size:1.4rem}
 .vbar{position:absolute;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;color:#fff;font-size:.85rem;z-index:2}
 .vbar span{flex:1;opacity:.75}
 .vbar .chip{background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.35)}
+html,body{overscroll-behavior:none}
+body{-webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-text-size-adjust:100%}
+button,.tile,.row,.qcard{-webkit-touch-callout:none;user-select:none}
+input[type=text]{user-select:text}
+.hdr{display:flex;gap:8px;align-items:center}
+.hint{color:var(--muted);font-size:.85rem;margin:-4px 0 12px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;max-width:min(92vw,420px);background:var(--ink);color:var(--bg);border-radius:14px;padding:12px 16px;font-size:.95rem;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+#toast[hidden]{display:none}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
 <main>
-  <div class="hd"><div class="logo">Pic<b>Quiz</b></div><button class="chip" id="theme"></button></div>
+  <div class="hd"><div class="logo">Pic<b>Quiz</b></div><div class="hdr"><button class="chip" id="inst" hidden>📲 Install app</button><button class="chip" id="theme"></button></div></div>
   <div id="app"></div>
 </main>
+<div id="toast" hidden role="status"></div>
 <div id="vw" hidden>
   <div class="vbar"><span>Pinch or double-tap to zoom</span><button class="chip" id="vm" aria-label="Zoom out">−</button><button class="chip" id="vp" aria-label="Zoom in">+</button><button class="chip" id="vx">✕ close</button></div>
   <img id="vi" alt="Full screen image">
@@ -159,7 +176,8 @@ function render(){
   }else if(n==='folder'){
     const f=S.folders.find(x=>x.id===view.id);if(!f)return go('folders');
     h+=`<button class="back" data-a="go" data-id="folders">← back to folders</button><h2>${esc(f.name)}</h2>
-    <div class="bar"><label class="btn file">⬆ add images<input type="file" id="up" accept="image/*" multiple></label><button class="btn alt" data-a="playf" data-id="${f.id}">▶ play</button></div>
+    <div class="bar"><label class="btn file">📷 Photos<input type="file" data-up accept="image/*" multiple></label><label class="btn file alt">📂 Files<input type="file" data-up accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.avif,.heic,.heif" multiple></label><button class="btn alt" data-a="playf" data-id="${f.id}">▶ play</button></div>
+    <p class="hint">Photos opens your photo picker. Files lets you pick from Downloads, gallery folders, SD card, Drive and other apps.</p>
     <div class="note" id="prog" hidden></div>
     <div class="bar"><input type="text" id="q" placeholder="Search names" value="${esc(view.q)}" aria-label="Search names"></div><div id="fl"></div>`;
   }else if(n==='pick'){
@@ -215,7 +233,7 @@ app.onclick=async e=>{
 };
 app.oninput=e=>{if(e.target.id==='q'){view.q=e.target.value;view.pg=1;fillList()}};
 app.onchange=async e=>{
-  if(e.target.id!=='up')return;
+  if(!e.target.hasAttribute('data-up'))return;
   const files=[...e.target.files],fid=view.id;e.target.value='';
   const have=new Set(inF(fid).map(x=>x.name.toLowerCase()));
   const pg=$('#prog');pg.hidden=false;
@@ -267,6 +285,22 @@ const dark=()=>root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefe
 const lab=()=>{tb.textContent=dark()?'☀️ light mode':'🌙 dark mode'};
 tb.onclick=()=>{root.dataset.theme=dark()?'light':'dark';lab()};
 lab();
+
+/* app install */
+const ib=$('#inst'),toast=$('#toast');let dip=null,tt;
+const say=m=>{toast.textContent=m;toast.hidden=false;clearTimeout(tt);tt=setTimeout(()=>toast.hidden=true,6000)};
+const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const iosSafari=!standalone&&(/iphone|ipad|ipod/i.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1));
+if(iosSafari)ib.hidden=false;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();dip=e;if(!standalone)ib.hidden=false});
+addEventListener('appinstalled',()=>{ib.hidden=true;dip=null;say('PicQuiz is installed. Open it from your home screen.')});
+ib.onclick=async()=>{
+  if(dip){dip.prompt();try{await dip.userChoice}catch(e){}dip=null;ib.hidden=true}
+  else say('Tap the Share button, then Add to Home Screen.');
+};
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 
 (async()=>{
   try{DB=await openDB()}catch(e){app.innerHTML='<div class="note">This browser is blocking local storage, so PicQuiz cannot save images here. Try a normal (non-private) tab.</div>';return}
