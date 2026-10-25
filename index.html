@@ -176,8 +176,8 @@ function render(){
   }else if(n==='folder'){
     const f=S.folders.find(x=>x.id===view.id);if(!f)return go('folders');
     h+=`<button class="back" data-a="go" data-id="folders">← back to folders</button><h2>${esc(f.name)}</h2>
-    <div class="bar"><label class="btn file">📷 Photos<input type="file" data-up accept="image/*" multiple></label><label class="btn file alt">📂 Files<input type="file" data-up accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.avif,.heic,.heif" multiple></label><button class="btn alt" data-a="playf" data-id="${f.id}">▶ play</button></div>
-    <p class="hint">Photos opens your photo picker. Files lets you pick from Downloads, gallery folders, SD card, Drive and other apps.</p>
+    <div class="bar"><label class="btn file">📂 From phone<input type="file" data-up multiple></label><label class="btn file alt">📷 Photo picker<input type="file" data-up accept="image/*" multiple></label><button class="btn alt" data-a="playf" data-id="${f.id}">▶ play</button></div>
+    <p class="hint">From phone opens your file browser: tap Images or a folder like DCIM or Screenshots. Photo picker opens the system photo picker, which may show Google Photos.</p>
     <div class="note" id="prog" hidden></div>
     <div class="bar"><input type="text" id="q" placeholder="Search names" value="${esc(view.q)}" aria-label="Search names"></div><div id="fl"></div>`;
   }else if(n==='pick'){
@@ -234,7 +234,8 @@ app.onclick=async e=>{
 app.oninput=e=>{if(e.target.id==='q'){view.q=e.target.value;view.pg=1;fillList()}};
 app.onchange=async e=>{
   if(!e.target.hasAttribute('data-up'))return;
-  const files=[...e.target.files],fid=view.id;e.target.value='';
+  const picked=[...e.target.files],fid=view.id;e.target.value='';
+  const files=picked.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(f.name)),ign=picked.length-files.length;
   const have=new Set(inF(fid).map(x=>x.name.toLowerCase()));
   const pg=$('#prog');pg.hidden=false;
   let add=0,skip=0,bad=0,full=false;
@@ -247,7 +248,7 @@ app.onchange=async e=>{
     try{await putImg(m,b);S.imgs.push(m);have.add(nm.toLowerCase());add++}
     catch(err){bad++;if(err&&err.name==='QuotaExceededError'){full=true;break}}
   }
-  note='Added '+add+(skip?', skipped '+skip+' duplicate names':'')+(bad?', '+bad+' failed':'')+'.'+(full?' Storage is full, so the rest were not added.':'');
+  note='Added '+add+(ign?', ignored '+ign+' non-image files':'')+(skip?', skipped '+skip+' duplicate names':'')+(bad?', '+bad+' failed':'')+'.'+(full?' Storage is full, so the rest were not added.':'');
   render();
 };
 
